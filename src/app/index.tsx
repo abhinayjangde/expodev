@@ -1,98 +1,202 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from "react";
+import { Modal, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from "react-native";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function Index() {
+  const [count, setCount] = useState(0);
+  const [warningVisible, setWarningVisible] = useState(false);
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+  const handleDecrement = () => {
+    if (count === 0) {
+      setWarningVisible(true);
+      return;
+    }
+
+    setCount((value) => value - 1);
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <SafeAreaView style={styles.screen}>
+      <StatusBar barStyle="light-content" />
+      <View style={styles.backgroundGlow} />
+      <View style={styles.container}>
+        <Text style={styles.kicker}>Simple counter</Text>
+        <Text style={styles.title}>Tap to change the value</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Current count</Text>
+          <Text style={styles.count}>{count}</Text>
+          <View style={styles.buttonRow}>
+            <CounterButton label="-1" onPress={handleDecrement} />
+            <CounterButton label="Reset" onPress={() => setCount(0)} variant="secondary" />
+            <CounterButton label="+1" onPress={() => setCount((value) => value + 1)} />
+          </View>
+        </View>
+      </View>
+
+      <Modal transparent animationType="fade" visible={warningVisible} onRequestClose={() => setWarningVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Cannot go below zero</Text>
+            <Text style={styles.modalMessage}>The counter cannot be negative.</Text>
+            <Pressable onPress={() => setWarningVisible(false)} style={({ pressed }) => [styles.modalButton, pressed && styles.buttonPressed]}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
-export default function HomeScreen() {
+type CounterButtonProps = {
+  label: string;
+  onPress: () => void;
+  variant?: "primary" | "secondary";
+};
+
+function CounterButton({ label, onPress, variant = "primary" }: CounterButtonProps) {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, variant === "secondary" && styles.secondaryButton, pressed && styles.buttonPressed]}
+    >
+      <Text style={[styles.buttonText, variant === "secondary" && styles.secondaryButtonText]}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#0b1020",
+  },
+  backgroundGlow: {
+    position: "absolute",
+    top: -120,
+    right: -100,
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    backgroundColor: "rgba(161, 167, 247, 0.22)",
+  },
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    paddingHorizontal: 24,
+    justifyContent: "center",
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  kicker: {
+    color: "#7dd3fc",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    marginBottom: 10,
   },
   title: {
-    textAlign: 'center',
+    color: "#f8fafc",
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: "800",
+    marginBottom: 20,
+    maxWidth: 280,
   },
-  code: {
-    textTransform: 'uppercase',
+  card: {
+    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    borderColor: "rgba(148, 163, 184, 0.22)",
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  label: {
+    color: "#cbd5e1",
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  count: {
+    color: "#ffffff",
+    fontSize: 72,
+    lineHeight: 80,
+    fontWeight: "900",
+    marginBottom: 20,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  button: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#38bdf8",
+  },
+  secondaryButton: {
+    backgroundColor: "rgba(148, 163, 184, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.28)",
+  },
+  buttonPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
+  },
+  buttonText: {
+    color: "#082f49",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  secondaryButtonText: {
+    color: "#e2e8f0",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.72)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: 24,
+    padding: 24,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.2)",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  modalTitle: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+  modalMessage: {
+    color: "#cbd5e1",
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  modalButton: {
+    alignSelf: "flex-end",
+    minWidth: 92,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: "#38bdf8",
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#082f49",
+    fontSize: 16,
+    fontWeight: "800",
   },
 });
