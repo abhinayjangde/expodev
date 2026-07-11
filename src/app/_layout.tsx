@@ -1,28 +1,36 @@
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="album/[id]"
-        options={{
-          headerStyle: {
-            backgroundColor: "#2786bd",
-          },
-          headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "bold",
-          },
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: "#0a0a0a" },
         }}
-      />
-      <Stack.Screen
-        name="photo/[id]"
-        options={{
-          headerShown: false,
-          presentation: "modal",
-        }}
-      />
-    </Stack>
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="album/[id]"
+          options={{
+            headerStyle: { backgroundColor: "#0a0a0a" },
+            headerTintColor: "#fff",
+            headerTitleStyle: { fontWeight: "600", fontSize: 17 },
+            headerBackTitle: "Back",
+          }}
+        />
+        <Stack.Screen
+          name="photo/[id]"
+          options={{
+            headerShown: false,
+            presentation: "fullScreenModal",
+            animation: "fade",
+          }}
+        />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }

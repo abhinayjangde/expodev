@@ -8,6 +8,7 @@ import {
   Dimensions,
   StyleSheet,
   FlatList,
+  SafeAreaView,
 } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,16 +17,18 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
 import {
   Gesture,
   GestureDetector,
-  GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import { getAllPhotos, deletePhotos, requestPermissions } from "@/lib/media";
 import { GalleryPhoto } from "@/lib/types";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
+  Dimensions.get("window");
 
 export default function PhotoViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -34,11 +37,14 @@ export default function PhotoViewerScreen() {
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [showControls, setShowControls] = useState(true);
+
   const router = useRouter();
-  const flatListRef = useRef<any>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
   const loadPhotos = useCallback(async () => {
     try {
@@ -72,7 +78,7 @@ export default function PhotoViewerScreen() {
 
     Alert.alert(
       "Delete Photo",
-      "Are you sure you want to delete this photo? This action cannot be undone.",
+      "This photo will be deleted from your library.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -108,11 +114,20 @@ export default function PhotoViewerScreen() {
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: any) => {
       if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index || 0);
+        const newIndex = viewableItems[0].index ?? 0;
+        setCurrentIndex(newIndex);
+        scale.value = withSpring(1);
+        savedScale.value = 1;
+        translateX.value = 0;
+        translateY.value = 0;
       }
     },
-    []
+    [scale, savedScale, translateX, translateY]
   );
+
+  const toggleControls = () => {
+    setShowControls((prev) => !prev);
+  };
 
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
@@ -121,31 +136,57 @@ export default function PhotoViewerScreen() {
     .onEnd(() => {
       if (scale.value < 1) {
         scale.value = withSpring(1);
-      } else if (scale.value > 2) {
-        scale.value = withSpring(2);
+      } else if (scale.value > 2.5) {
+        scale.value = withSpring(2.5);
       }
       savedScale.value = scale.value;
     });
 
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      if (scale.value > 1) {
+        scale.value = withSpring(1);
+        savedScale.value = 1;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      } else {
+        scale.value = withSpring(2);
+        savedScale.value = 2;
+      }
+    });
+
+  const composed = Gesture.Simultaneous(pinchGesture, doubleTapGesture);
+
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
   if (!hasPermission) {
     return (
-      <View className="flex-1 items-center justify-center bg-black px-6">
-        <Ionicons name="lock-closed" size={64} color="#8e8e93" />
-        <Text className="text-xl font-semibold text-white mt-4">
-          Permission Required
+      <View className="flex-1 items-center justify-center bg-[#0a0a0a] px-8">
+        <View className="w-20 h-20 rounded-full bg-[#1c1c1e] items-center justify-center mb-6">
+          <Ionicons name="lock-closed-outline" size={32} color="#636366" />
+        </View>
+        <Text className="text-[22px] font-semibold text-white mb-2 text-center">
+          Access Required
         </Text>
-        <Text className="text-gray-400 text-center mt-2">
-          This app needs access to your photo library to display photos.
+        <Text className="text-[15px] text-[#8e8e93] text-center leading-6 mb-8 max-w-[280px]">
+          Grant photo library access to view your photos.
         </Text>
         <TouchableOpacity
-          className="bg-blue-500 px-6 py-3 rounded-full mt-6"
           onPress={loadPhotos}
+          activeOpacity={0.8}
+          className="bg-[#0a84ff] rounded-full overflow-hidden"
+          style={{ paddingHorizontal: 32, paddingVertical: 14 }}
         >
-          <Text className="text-white font-semibold">Grant Permission</Text>
+          <Text className="text-white font-semibold text-[16px]">
+            Allow Access
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -153,18 +194,22 @@ export default function PhotoViewerScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-black">
-        <ActivityIndicator size="large" color="#fff" />
-        <Text className="text-gray-400 mt-4">Loading photos...</Text>
+      <View className="flex-1 items-center justify-center bg-[#0a0a0a]">
+        <ActivityIndicator size="large" color="#636366" />
+        <Text className="text-[15px] text-[#636366] mt-4">Loading...</Text>
       </View>
     );
   }
 
   if (photos.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center bg-black">
-        <Ionicons name="images-outline" size={64} color="#8e8e93" />
-        <Text className="text-gray-400 mt-4">No photos to display</Text>
+      <View className="flex-1 items-center justify-center bg-[#0a0a0a]">
+        <View className="w-16 h-16 rounded-full bg-[#1c1c1e] items-center justify-center mb-4">
+          <Ionicons name="images-outline" size={28} color="#636366" />
+        </View>
+        <Text className="text-[17px] text-[#636366] font-medium">
+          No Photos
+        </Text>
       </View>
     );
   }
@@ -172,82 +217,162 @@ export default function PhotoViewerScreen() {
   const currentPhoto = photos[currentIndex];
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "black" }}>
-      <View style={{ flex: 1, backgroundColor: "black" }}>
-        {showControls && (
-          <View className="absolute top-0 left-0 right-0 z-10 pt-12 px-4 pb-4 bg-black/50">
-            <View className="flex-row items-center justify-between">
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <FlatList
+        ref={flatListRef}
+        data={photos}
+        keyExtractor={(item) => item.id}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        initialScrollIndex={currentIndex}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
+          index,
+        })}
+        renderItem={({ item }) => (
+          <View
+            style={{
+              width: SCREEN_WIDTH,
+              height: SCREEN_HEIGHT,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "#000",
+            }}
+          >
+            <GestureDetector gesture={composed}>
+              <Animated.View
+                style={[styles.imageContainer, animatedStyle]}
+              >
+                <Image
+                  source={{ uri: item.uri }}
+                  style={styles.image}
+                  contentFit="contain"
+                  transition={200}
+                />
+              </Animated.View>
+            </GestureDetector>
+          </View>
+        )}
+      />
+
+      {showControls && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={styles.topOverlay}
+        >
+          <SafeAreaView>
+            <View style={styles.topBar}>
               <TouchableOpacity
                 onPress={() => router.back()}
-                className="p-2"
+                style={styles.controlButton}
+                activeOpacity={0.7}
               >
-                <Ionicons name="arrow-back" size={28} color="white" />
+                <Ionicons name="chevron-back" size={28} color="white" />
               </TouchableOpacity>
 
-              <Text className="text-white font-medium">
-                {currentIndex + 1} / {photos.length}
-              </Text>
+              <View style={styles.counterBadge}>
+                <Text style={styles.counterText}>
+                  {currentIndex + 1} / {photos.length}
+                </Text>
+              </View>
 
-              <TouchableOpacity onPress={handleDelete} className="p-2">
-                <Ionicons name="trash" size={24} color="#ff3b30" />
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={styles.controlButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={22} color="#ff453a" />
               </TouchableOpacity>
             </View>
-          </View>
-        )}
+          </SafeAreaView>
+        </Animated.View>
+      )}
 
-        <FlatList
-          ref={flatListRef}
-          data={photos}
-          keyExtractor={(item) => item.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          initialScrollIndex={currentIndex}
-          onViewableItemsChanged={handleViewableItemsChanged}
-          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-          renderItem={({ item }) => (
-            <View
-              style={{
-                width: SCREEN_WIDTH,
-                height: SCREEN_HEIGHT,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <GestureDetector gesture={pinchGesture}>
-                <Animated.View style={[styles.imageContainer, animatedStyle]}>
-                  <Image
-                    source={{ uri: item.uri }}
-                    style={styles.image}
-                    contentFit="contain"
-                    transition={300}
-                  />
-                </Animated.View>
-              </GestureDetector>
+      {showControls && currentPhoto?.mediaType === "video" && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={styles.videoBadge}
+        >
+          <Ionicons name="play-circle" size={16} color="white" />
+          <Text style={styles.videoText}>
+            {currentPhoto.duration
+              ? `${Math.floor(currentPhoto.duration / 60)}:${String(
+                  Math.floor(currentPhoto.duration % 60)
+                ).padStart(2, "0")}`
+              : "Video"}
+          </Text>
+        </Animated.View>
+      )}
+
+      <TouchableOpacity
+        style={{
+          position: "absolute",
+          top: SCREEN_HEIGHT * 0.2,
+          left: 0,
+          right: 0,
+          bottom: SCREEN_HEIGHT * 0.2,
+        }}
+        onPress={toggleControls}
+        activeOpacity={1}
+      />
+
+      {showControls && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={styles.bottomOverlay}
+        >
+          <SafeAreaView>
+            <View style={styles.bottomBar}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="share-outline"
+                  size={22}
+                  color="white"
+                />
+                <Text style={styles.actionLabel}>Share</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="heart-outline"
+                  size={22}
+                  color="white"
+                />
+                <Text style={styles.actionLabel}>Favorite</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={22}
+                  color="#ff453a"
+                />
+                <Text style={[styles.actionLabel, { color: "#ff453a" }]}>
+                  Delete
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
-        />
-
-        {currentPhoto?.mediaType === "video" && (
-          <View className="absolute bottom-20 left-0 right-0 items-center">
-            <View className="bg-black/60 px-4 py-2 rounded-full">
-              <Text className="text-white font-medium">
-                Video •{" "}
-                {currentPhoto.duration
-                  ? `${Math.round(currentPhoto.duration)}s`
-                  : "Unknown duration"}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        <TouchableOpacity
-          className="absolute bottom-0 left-0 right-0 h-20"
-          onPress={() => setShowControls(!showControls)}
-          activeOpacity={1}
-        />
-      </View>
-    </GestureHandlerRootView>
+          </SafeAreaView>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -261,5 +386,83 @@ const styles = StyleSheet.create({
   image: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
+  },
+  topOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 12,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  counterBadge: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  counterText: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  videoBadge: {
+    position: "absolute",
+    bottom: 120,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  videoText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  bottomOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 12,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+  },
+  actionButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    padding: 12,
+  },
+  actionLabel: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "500",
   },
 });

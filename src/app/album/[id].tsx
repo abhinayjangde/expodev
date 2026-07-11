@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -11,12 +10,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { deletePhotos, getAlbumPhotos, requestPermissions } from "../../lib/media";
+import {
+  deletePhotos,
+  getAlbumPhotos,
+  requestPermissions,
+} from "../../lib/media";
 import { GalleryPhoto } from "../../lib/types";
 
 const { width } = Dimensions.get("window");
 const COLUMN_COUNT = 3;
-const PHOTO_SIZE = width / COLUMN_COUNT;
+const GAP = 2;
+const PHOTO_SIZE = (width - GAP * (COLUMN_COUNT + 1)) / COLUMN_COUNT;
 
 export default function AlbumDetailScreen() {
   const { id, title } = useLocalSearchParams<{ id: string; title: string }>();
@@ -27,12 +31,10 @@ export default function AlbumDetailScreen() {
 
   const loadPhotos = useCallback(async () => {
     if (!id) return;
-
     try {
       setLoading(true);
       const granted = await requestPermissions();
       setHasPermission(granted);
-
       if (granted) {
         const result = await getAlbumPhotos(id);
         setPhotos(result.photos);
@@ -63,7 +65,10 @@ export default function AlbumDetailScreen() {
             if (success) {
               setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
             } else {
-              Alert.alert("Error", "Failed to delete photo. Please try again.");
+              Alert.alert(
+                "Error",
+                "Failed to delete photo. Please try again."
+              );
             }
           },
         },
@@ -73,19 +78,26 @@ export default function AlbumDetailScreen() {
 
   if (!hasPermission) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <Ionicons name="lock-closed" size={64} color="#8e8e93" />
-        <Text className="text-xl font-semibold text-gray-800 mt-4">
-          Permission Required
+      <View className="flex-1 items-center justify-center bg-[#0a0a0a] px-8">
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="w-20 h-20 rounded-full bg-[#1c1c1e] items-center justify-center mb-6">
+          <Ionicons name="lock-closed-outline" size={32} color="#636366" />
+        </View>
+        <Text className="text-[22px] font-semibold text-white mb-2 text-center">
+          Access Required
         </Text>
-        <Text className="text-gray-500 text-center mt-2">
-          This app needs access to your photo library to display photos.
+        <Text className="text-[15px] text-[#8e8e93] text-center leading-6 mb-8 max-w-70">
+          Grant photo library access to view this album.
         </Text>
         <TouchableOpacity
-          className="bg-blue-500 px-6 py-3 rounded-full mt-6"
           onPress={loadPhotos}
+          activeOpacity={0.8}
+          className="bg-[#0a84ff] rounded-full overflow-hidden"
+          style={{ paddingHorizontal: 32, paddingVertical: 14 }}
         >
-          <Text className="text-white font-semibold">Grant Permission</Text>
+          <Text className="text-white font-semibold text-[16px]">
+            Allow Access
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -93,34 +105,53 @@ export default function AlbumDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#2786bd" />
-        <Text className="text-gray-500 mt-4">Loading photos...</Text>
+      <View className="flex-1 items-center justify-center bg-[#0a0a0a]">
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="w-12 h-12 rounded-full bg-[#1c1c1e] items-center justify-center mb-4">
+          <Ionicons name="images-outline" size={24} color="#636366" />
+        </View>
+        <Text className="text-[15px] text-[#636366]">Loading photos...</Text>
       </View>
     );
   }
 
-  const renderPhoto = ({ item, index }: { item: GalleryPhoto; index: number }) => (
+  const renderPhoto = ({ item }: { item: GalleryPhoto }) => (
     <TouchableOpacity
+      activeOpacity={0.85}
       onPress={() =>
         router.push({
           pathname: "/photo/[id]",
-          params: { id: item.id, index: index.toString() },
+          params: { id: item.id },
         })
       }
       onLongPress={() => handleDelete(item)}
+      style={{
+        width: PHOTO_SIZE,
+        height: PHOTO_SIZE,
+        margin: GAP / 2,
+        borderRadius: 6,
+        overflow: "hidden",
+      }}
     >
       <Image
         source={{ uri: item.uri }}
-        style={{ width: PHOTO_SIZE - 2, height: PHOTO_SIZE - 2 }}
-        className="m-0.5 rounded"
+        style={{ width: "100%", height: "100%" }}
         contentFit="cover"
         transition={300}
       />
       {item.mediaType === "video" && (
-        <View className="absolute bottom-1 right-1 bg-black/60 px-1.5 py-0.5 rounded">
-          <Text className="text-white text-xs font-medium">
-            {item.duration ? `${Math.round(item.duration)}s` : "Video"}
+        <View
+          className="absolute bottom-1.5 right-1.5 flex-row items-center rounded-md"
+          style={{
+            backgroundColor: "rgba(0,0,0,0.65)",
+            paddingHorizontal: 6,
+            paddingVertical: 3,
+            gap: 3,
+          }}
+        >
+          <Ionicons name="play" size={10} color="white" />
+          <Text className="text-white text-[10px] font-semibold">
+            {item.duration ? `${Math.round(item.duration)}s` : ""}
           </Text>
         </View>
       )}
@@ -128,18 +159,40 @@ export default function AlbumDetailScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white">
-      <Stack.Screen options={{ headerTitle: title || "Album" }} />
+    <View className="flex-1 bg-[#0a0a0a]">
+      <Stack.Screen
+        options={{
+          headerTitle: title || "Album",
+          headerStyle: { backgroundColor: "#0a0a0a" },
+          headerTintColor: "#fff",
+          headerTitleStyle: { fontWeight: "600" },
+        }}
+      />
+      <View className="px-5 pb-3">
+        <Text className="text-[13px] text-[#636366]">
+          {photos.length.toLocaleString()} items
+          {photos.length > 0 && "  ·  Long press to delete"}
+        </Text>
+      </View>
       <FlatList
         data={photos}
         keyExtractor={(item) => item.id}
         renderItem={renderPhoto}
         numColumns={COLUMN_COUNT}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        columnWrapperStyle={{ paddingHorizontal: GAP / 2 }}
         ListEmptyComponent={
-          <View className="flex-1 items-center justify-center py-20">
-            <Ionicons name="images-outline" size={64} color="#c7c7cc" />
-            <Text className="text-gray-500 mt-4">No photos in this album</Text>
+          <View className="items-center justify-center py-32">
+            <View className="w-16 h-16 rounded-full bg-[#1c1c1e] items-center justify-center mb-4">
+              <Ionicons name="images-outline" size={28} color="#636366" />
+            </View>
+            <Text className="text-[17px] text-[#636366] font-medium">
+              No Photos
+            </Text>
+            <Text className="text-[13px] text-[#48484a] mt-1">
+              This album is empty
+            </Text>
           </View>
         }
       />
