@@ -26,6 +26,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Allow App to access your camera",
@@ -45,7 +52,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
